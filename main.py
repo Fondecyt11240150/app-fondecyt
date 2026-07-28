@@ -14,8 +14,8 @@ def main(page: ft.Page):
 
     page.title = "Proyecto Fondecyt"
     page.theme_mode = ft.ThemeMode.LIGHT
-    page.window.full_screen = False
-    page.window.frameless = False
+    page.window.full_screen = True
+    page.window.frameless = True
     page.window.width = 450
     page.window.height = 850
     page.bgcolor = COLOR_FONDO
@@ -45,7 +45,7 @@ def main(page: ft.Page):
                 ft.Image(src=nombre_imagen, width=200, height=200, fit="contain"),
                 
                 ft.Container(
-                    content=ft.Text(texto, color=ft.Colors.BLACK87, size=14),
+                    content=ft.Text(texto, color=ft.Colors.BLACK_87, size=14),
                     bgcolor=ft.Colors.WHITE,
                     padding=5,
                     # 2. ¡EL TRUCO! Movemos el "0" a top_left. Así el pico nace arriba, a la altura de la boca/cara.
@@ -131,7 +131,7 @@ def main(page: ft.Page):
 
         page.add(
             ft.Text(
-                "A través de esta app podrás simular procesos de toma de decisiones en contextos de riesgos e incertidumbre, similares a los que podrías enfrentar en la vida cotidiana. ¡Te invitamos a leer con atención y tomar tu mejor decisión!. Cuéntanos al tinal qué te pareció el proceso.",
+                "A través de esta app podrás simular procesos de toma de decisiones en contextos de riesgos e incertidumbre, similares a los que podrías enfrentar en la vida cotidiana. ¡Te invitamos a leer con atención y tomar tu mejor decisión!. Cuéntanos al final qué te pareció el proceso.",
                 size=15,
                 text_align=ft.TextAlign.JUSTIFY
             )
@@ -316,7 +316,7 @@ def main(page: ft.Page):
 
         page.vertical_alignment = ft.MainAxisAlignment.START
 
-        texto_contexto = "Contexto: Las tiendas de mascotas y servicios de 'gooming' (peluquería y cuidado animal) han tenido un gran auge durante los últimos años, convirtiéndose en un negocio muy rentable.\n\nEn este simlador, tomarás decisiones para proteger tu inversión inicial."
+        texto_contexto = "Contexto: Las tiendas de mascotas y servicios de 'grooming' (peluquería y cuidado animal) han tenido un gran auge durante los últimos años, convirtiéndose en un negocio muy rentable.\n\nEn este simlador, tomarás decisiones para proteger tu inversión inicial."
         elementos = ft.Column(
             controls=[
                 componente_npc(texto_contexto, "idea.png"),
@@ -351,45 +351,40 @@ def main(page: ft.Page):
             ("Seguro Parcial", lambda: evaluar_seguro("Parcial", funcion_informacion_siguiente, texto_info_siguiente, lambda: rama_aceptacion_base(funcion_informacion_siguiente, texto_info_siguiente, atras)))
         ]
 
-        if funcion_informacion_siguiente and texto_info_siguiente:
-            opciones.append((texto_info_siguiente, lambda: funcion_informacion_siguiente(atras=lambda: rama_aceptacion_base(funcion_informacion_siguiente, texto_info_siguiente, atras))))
-
         cambiar_pantalla(texto, opciones, "Seleccion de Tipo de Seguro", "idea.png", atras)
 
     def evaluar_seguro(tipo_seguro, funcion_informacion_siguiente, texto_info_siguiente, atras=None):
         if tipo_seguro == "Full":
-            texto = "[SEGURO FULL] Debes pagar una prima mensual de $80.000.\n\n¿Quieres continuar o prefieres tener más información?"
+            texto = "Debes pagar una prima mensual de $90.000.\n\n¿Tomarías el seguro?"
         else:
-            texto = "[SEGURO PARCIAL] Debes pagar una prima mensual de $40.000.\n\n¿Quieres continuar o prefieres tener más información?"
+            texto = "Debes pagar una prima mensual de $40.000.\n\n¿Tomarías el seguro?"
             
         opciones = [
             ("Sí, quiero tomar este seguro", lambda: finalizar_simulacion(tipo_seguro))
         ]
 
+        # Aquí se agrega el botón de más información SI es que existe para esa etapa
         if funcion_informacion_siguiente and texto_info_siguiente:
             opciones.append((texto_info_siguiente, lambda: funcion_informacion_siguiente(atras=lambda: evaluar_seguro(tipo_seguro, funcion_informacion_siguiente, texto_info_siguiente, atras))))
 
-        
-
         cambiar_pantalla(texto, opciones, f'Evaluación del Seguro {tipo_seguro}', "idea.png", atras)
-    
+
     def iniciar_seguro(atras=None):
         page.session.store.set("historial_decisiones", [])
         texto = "Inviertes para iniciar un negocio de grooming para mascotas en un local físico.\n\nUna compañia de seguros te ofrece asegurar tu local. ¿Lo tomarías?"
         texto_info_gastos = "No, necesito más información sobre los gastos y ganancias del negocio antes de tomar una decisión"
 
         opciones = [
-            ("Sí, lo tomaría", lambda: rama_aceptacion_base(rama_gastos)),
-            ("No lo tomaría", rama_rechazo_inicial),
+            ("Sí, lo tomaría", lambda: rama_aceptacion_base(rama_gastos, texto_info_gastos, lambda: iniciar_seguro(atras))),
+            ("No lo tomaría", lambda: rama_rechazo_inicial(lambda: iniciar_seguro(atras))),
             (texto_info_gastos, lambda: rama_gastos(lambda: iniciar_seguro(atras)))
         ]
         cambiar_pantalla(texto, opciones, "Inicio del Simulador", "indicar.png", atras)
-
     
     def rama_rechazo_inicial(atras=None):
         texto = "Si el negocio sufre algún tipo de daño, deberás realizar una nueva inversión.\n\n¿Mantienes tu decisión o prefieres conocer más sobre los seguro antes de tomar una decisión?"
-        texto_info_gastos = "Prefiero conocer más sobre las ganancias y gastos del negocio antes de tomar una decisión."
-
+        texto_info_gastos = "Prefiero conocer más sobre las ganancias y gastos del negocio antes de tomar una decisión"
+        
         opciones = [
             ("Conservo mi decisión, no tomaría un seguro", lambda: finalizar_simulacion("Ninguno")),
             (texto_info_gastos, lambda: rama_gastos(lambda: rama_rechazo_inicial(atras)))
@@ -398,7 +393,7 @@ def main(page: ft.Page):
     
     def rama_gastos(atras=None):
         texto = "--- INFORMACIÓN DE GASTOS ---\n\nLos gastos mensuales del local(arriendo, pago de servicios y otros) equivalen a $450.000\n\nTu inversión inicial para instalar y habilitar el negocio fue de $3.000.000.\n\nEl negocio proyecta una ganancia neta (lo que queda después de pagar los gastos) con un promedio mensual de $900.000.\n\n¿Tomarías el seguro?"
-        texto_info_ofrecen = "No, necesito más información sobre lo que ofrecen los seguros antes de tomar una decisión."
+        texto_info_ofrecen = "No, necesito más información sobre lo que ofrecen los seguros antes de tomar una decisión"
         
         opciones = [
             ("Sí, lo tomaría", lambda: rama_aceptacion_base(rama_ofrecen, texto_info_ofrecen, lambda: rama_gastos(atras))),
@@ -408,11 +403,11 @@ def main(page: ft.Page):
         cambiar_pantalla(texto, opciones, "Rama de Información de Gastos", "lista.png", atras)
 
     def rama_ofrecen(atras=None):
-        texto = "--- INFORMACIÓN DE COBERTURA ---\n\nLa compañía ofrece dos tipos de seguros\n\n• Seguro Full: Prima mensual de $80.000. Cubre pérdida total por daños en la infraestructura del local y, además, daños o pérdidas de las mercancías, por conceptos de robo o siniestros.\n\n• Seguro Parcial: Prima mensual de $40.000. Cubre pérdida por daños en la infraestructura o bien daños o pérdidas en las mercancías, por concepto de robos o siniestros, con un tope máximo de $2.000.000.\n\n¿Tomarías alguno de los seguros?"
-        texto_info_riesgos = "No, necesito información sobre los riesgos a los que está expuesto el negocio antes de tomar una decision"
-
+        texto = "--- INFORMACIÓN DE COBERTURA ---\n\nLa compañía ofrece dos tipos de seguros\n\n• Seguro Full: Prima mensual de $90.000. Cubre pérdida total por daños en la infraestructura del local y, además, daños o pérdidas de las mercancías, por conceptos de robo o siniestros.\n\n• Seguro Parcial: Prima mensual de $40.000. Cubre pérdida por daños en la infraestructura o bien daños o pérdidas en las mercancías, por concepto de robos o siniestros, con un tope máximo de $2.000.000.\n\n¿Tomarías alguno de los seguros?"
+        texto_info_riesgos = "No, necesito información sobre los riesgos a los que está expuesto el negocio antes de tomar una decisión"
+        
         opciones = [
-            ("Sí, lo tomaría", lambda: rama_aceptacion_base(rama_riesgos, texto_info_riesgos, lambda: rama_ofrecen(atras))),
+            ("Sí, tomaría alguno", lambda: rama_aceptacion_base(rama_riesgos, texto_info_riesgos, lambda: rama_ofrecen(atras))),
             (texto_info_riesgos, lambda: rama_riesgos(lambda: rama_ofrecen(atras))),
             ("No tomaría un seguro", lambda: finalizar_simulacion("Ninguno"))
         ]
@@ -421,9 +416,9 @@ def main(page: ft.Page):
     def rama_riesgos(atras=None):
         texto = "--- INFORMACIÓN DE RIESGOS ---\n\nEn el sector donde estará el local comercial de tu futuro negocio, se sabe que:\n\n• Se reporta una tasa promedio mensual de 20% de robos menores.\n\n• Se reporta una tasa promedio mensual de 10% de robos mayores.\n\n• Se reporta una tasa promedio anual de 5% de siniestros catastróficos (incendios, inundaciones u otros)\n\n¿Tomarías el seguro?"
         texto_info_costos = "No, necesito más información sobre los costos si sufro un robo o un siniestro antes de tomar una decisión"
-
+        
         opciones = [
-            ("Sí, lo tomaría", lambda: rama_aceptacion_base(rama_costos, texto_info_costos, lambda: rama_riesgos(atras))),
+            ("Sí, tomaría alguno", lambda: rama_aceptacion_base(rama_costos, texto_info_costos, lambda: rama_riesgos(atras))),
             (texto_info_costos, lambda: rama_costos(lambda: rama_riesgos(atras))),
             ("No tomaría un seguro", lambda: finalizar_simulacion("Ninguno"))
         ]
@@ -431,12 +426,13 @@ def main(page: ft.Page):
 
     def rama_costos(atras=None):
         texto = "--- INFORMACIÓN DE COSTOS POR ROBO O SINIESTRO ---\n\nSegún registros de las autoridades locales, se sabe que:\n\n• Se reporta un costo promedio de $600.000 por sufrir robos menores.\n\n• Se reporta un costo promedio de $3.000.000 por sufrir robos mayores.\n\n• Se reporta que al sufrir un siniestro catastrófico (incendios, inundaciones u otros) la pérdida de tu patrimonio es total y para seguir con tu negocio se debe comenzar desde cero.\n\n¿Tomarías el seguro?"
-
+        
         opciones = [
+            # Al ser el último paso, pasamos explícitamente None, None
             ("Sí, tomaría un seguro", lambda: rama_aceptacion_base(None, None, lambda: rama_costos(atras))),
             ("No tomaría un seguro", lambda: finalizar_simulacion("Ninguno"))
         ]
-        cambiar_pantalla(texto, opciones, "Rama Información de Costos", "lista.png")
+        cambiar_pantalla(texto, opciones, "Rama Información de Costos", "lista.png", atras)
     
     def mostrar_proyeccion_5_años():
         page.controls.clear()
@@ -519,7 +515,7 @@ def main(page: ft.Page):
         page.add(ft.Divider(height=10, color="transparent"))    
 
         page.add(ft.Text("Reflexión Final", size=22, weight="bold", color=COLOR_AZUL_UCM))
-        page.add(ft.Text("Luego de la proyección obtenidam, ¿mantendrías tu decisión? Explica tu respuesta.", size=16))
+        page.add(ft.Text("Luego de la proyección obtenida, ¿mantendrías tu decisión? Explica tu respuesta.", size=16))
 
         campo_reflexion = ft.TextField(
             multiline=True,
