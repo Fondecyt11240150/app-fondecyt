@@ -14,8 +14,8 @@ def main(page: ft.Page):
 
     page.title = "Proyecto Fondecyt"
     page.theme_mode = ft.ThemeMode.LIGHT
-    page.window.full_screen = True
-    page.window.frameless = True
+    page.window.full_screen = False
+    page.window.frameless = False
     page.window.width = 450
     page.window.height = 850
     page.bgcolor = COLOR_FONDO
@@ -188,7 +188,7 @@ def main(page: ft.Page):
                 controls=[
                     ft.Container(
                         content=ft.Text(
-                            "Has decidico no paticipar. ¡No hay problema, gracias por tu tiempo!",
+                            "Has decidido no paticipar. ¡No hay problema, gracias por tu tiempo!",
                             color=ft.Colors.BLACK_87,
                             size=16,
                             text_align=ft.TextAlign.CENTER
@@ -257,7 +257,7 @@ def main(page: ft.Page):
     def pantalla_seleccion_simulador(atras=None):
         page.controls.clear()
 
-        page.add(componente_npc("¡Genial! Por Favor, registra tu nombre y selecciona el simulador al que deseas ingrear.", "idea.png"))
+        page.add(componente_npc("¡Genial! Por Favor, registra tu nombre y selecciona el simulador al que deseas ingresar.", "idea.png"))
 
         campo_nombre = ft.TextField(
             label="Tu nombre",
@@ -278,10 +278,20 @@ def main(page: ft.Page):
             pantalla_contexto_grooming(atras=lambda: pantalla_seleccion_simulador(atras))
 
         def ingresar_medioambiente(e):
-            page.snack_bar = ft.SnackBar(ft.Text("Este simulador estará disponible próximamente."))
-            page.snack_bar.open = True
-            page.update()
+            nombre = campo_nombre.value.strip()
+            if len(nombre) < 2:
+                campo_nombre.error = "Ingresa un nombre válido"
+                page.update()
+                return
+
+            campo_nombre.error = None
+
+            page.session.store.set("nombre_usuario", nombre)
+            pantalla_contexto_clima(atras=lambda: pantalla_seleccion_simulador(atras))
+
         
+    
+                    
         tarjeta_grooming = ft.Card(
             content=ft.Container(
                 content=ft.Column([
@@ -298,7 +308,7 @@ def main(page: ft.Page):
                 content=ft.Column([
                     ft.Icon(ft.Icons.ECO, size=40, color=ft.Colors.GREEN_600),
                     ft.Text("Simulador de Decisiones Medioambientales", weight="bold", size=16),
-                    ft.ElevatedButton("Próximamente", on_click=ingresar_medioambiente)
+                    ft.ElevatedButton("Ingresar", style=ft.ButtonStyle(bgcolor=ft.Colors.GREEN_600, color=ft.Colors.WHITE), on_click=ingresar_medioambiente)
                 ], alignment=ft.MainAxisAlignment.CENTER, horizontal_alignment=ft.CrossAxisAlignment.CENTER),
                 padding=20, width=400
             )
@@ -552,6 +562,7 @@ def main(page: ft.Page):
             paquete_datos = {
                 "id": page.session.store.get("id_sesion"),
                 "nombre_estudiante": nombre_recuperado,
+                "tipo_simulador": "Grooming de Mascotas",
                 "historial_decisiones": page.session.store.get("historial_decisiones"),
                 "reflexion_final": reflexion_estudiante
             }
@@ -644,6 +655,339 @@ def main(page: ft.Page):
         page.add(boton_enviar)
 
         page.update()
+
+    def pantalla_contexto_clima(atras=None):
+        page.controls.clear()
+        page.vertical_alignment = ft.MainAxisAlignment.START
+
+        texto_contexto = (
+            "Contexto: El cambio climático y fenómenos como 'El Niño' han aumentado la intensidad "
+            "de los desastres naturales en nuestro país, poniendo en constante riesgo a miles de familias y viviendas.\n\n"
+            "La gestión de riesgos ambientales exige tomar decisiones difíciles con rapidez, equilibrando "
+            "la seguridad de las personas, los costos operativos y la incertidumbre de los pronósticos.\n\n"
+            "En este simulador, tu misión será interpretar datos meteorológicos y decidir medidas "
+            "preventivas para proteger a tu comunidad frente a una catástrofe inminente. ¡Buena suerte!"
+        )
+
+        elementos = ft.Column(
+            controls=[
+                componente_npc(texto_contexto, "eco_saludo.png"),
+
+                ft.Image(src="clima.png", width=400, height=200, fit=ft.BoxFit.CONTAIN, border_radius=10),
+
+                ft.ElevatedButton(
+                    "Comenzar Simulación",
+                    style=ft.ButtonStyle(bgcolor=ft.Colors.GREEN_600, color=ft.Colors.WHITE, padding=20),
+                    width=400,
+                    on_click=lambda e: iniciar_clima(atras=lambda: pantalla_contexto_clima(atras))
+                )
+            ],
+            horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+            spacing=15
+        )
+        if atras:
+            elementos.controls.append(ft.Divider(height=5, color="transparent"))
+            elementos.controls.append(ft.ElevatedButton("Volver atrás", on_click=lambda e: atras(), width=400, style=ft.ButtonStyle(bgcolor=ft.Colors.GREY_300, color=COLOR_AZUL_UCM, padding=20)))
+
+        page.add(elementos)
+        page.update()
+
+    def evaluar_alerta(tipo_alerta, funcion_info_siguiente, texto_info_siguiente, atras=None):
+        if tipo_alerta == "Ninguna":
+            texto = "No emitir alertas implica que no se activan medidas extraordinarias. Se mantiene el funcionamiento normal y solo se observa la evolución del evento.\n\n¿Tomas una decisión o solicitas más información?"
+        elif tipo_alerta == "Amarilla":
+            texto = "Emitir esta alerta implica que se activa parcialmente el sistema de respuesta: vigilancia reforzada, preparación de albergues, coordinación de equipos, revisión de rutas de evacuación y comunicación preventiva a la población.\n\n¿Tomas una decisión o solicitas más información?"
+        else:
+            texto = "Emitir esta alerta implica que se movilizan todos los recursos necesarios y se ordena la evacuación de las familias que viven en las zonas riesgosas.\n\n¿Tomas una decisión o solicitas más información?"
+
+        opciones = [
+            ("Sí, quiero tomar esta decisión", lambda: finalizar_simulacion_clima(tipo_alerta))
+        ]
+
+        if funcion_info_siguiente and texto_info_siguiente:
+            opciones.append((texto_info_siguiente, lambda: funcion_info_siguiente(atras=lambda: evaluar_alerta(tipo_alerta, funcion_info_siguiente, texto_info_siguiente, atras))))
+
+        cambiar_pantalla(texto, opciones, f'Evaluación de Alerta {tipo_alerta}', "eco_indicar.png", atras)
+
+    def iniciar_clima(atras=None):
+        page.session.store.set("historial_decisiones", [])
+
+        texto = (
+            "La Dirección Meteorológica de Chile informa un sistema frontal intenso que afectará la Región del Maule durante las próximas horas. SENAPRED solicita evaluar si corresponde emitir una alerta preventiva.\n\n"
+            "Cada semana se debe volver a tomar una decisión ante la inminente presencia del fenómeno del Súper Niño.\n\n"
+            "¿Qué decisión tomarías?"
+        )
+        texto_info = "Necesito más información para tomar una decisión"
+
+        opciones = [
+            ("No tomar medidas (sin alertas)", lambda: evaluar_alerta("Ninguna", rama_pronostico, "Solicito más información", lambda: iniciar_clima(atras))),
+            ("Emitir alerta amarilla", lambda: evaluar_alerta("Amarilla", rama_pronostico, "Solicito más información", lambda: iniciar_clima(atras))),
+            ("Emitir alerta roja", lambda: evaluar_alerta("Roja", rama_pronostico, "Solicito más información", lambda: iniciar_clima(atras))),
+            (texto_info, lambda: rama_pronostico(lambda: iniciar_clima(atras)))
+        ]
+
+        cambiar_pantalla(texto, opciones, "Inicio del Simulador", "eco_lectura.png", atras)
+
+    def rama_pronostico(atras=None):
+        texto = (
+            "--- PRONÓSTICO METEOROLÓGICO ---\n\n"
+            "• El pronóstico indica una probabilidad del 60 % de que durante los próximos cinco días se acumulen al menos 180 mm  de lluvia.\n\n"
+            "• Si ese nivel de precipitación llega a registrarse, se estima una probabilidad del 40 % de que el río se desborde. Además existe un 50 % de probabilidad de que la isoterma cero supere los 3.000 metros.\n\n"
+            "• Si coinciden ambos eventos, la probabilidad de desborde aumenta al 65 %.\n\n"
+            "¿Tomarías una decisión o solicitas más información?"
+        )
+        texto_info = "Solicito más información"
+
+        opciones = [
+            ("No tomar medidas (sin alertas)", lambda: evaluar_alerta("Ninguna", rama_costos_clima, texto_info, lambda: rama_pronostico(atras))),
+            ("Emitir alerta amarilla", lambda: evaluar_alerta("Amarilla", rama_costos_clima, texto_info, lambda: rama_pronostico(atras))),
+            ("Emitir alerta roja", lambda: evaluar_alerta("Roja", rama_costos_clima, texto_info, lambda: rama_pronostico(atras))),
+            (texto_info, lambda: rama_costos_clima(lambda: rama_pronostico(atras)))
+        ]
+        cambiar_pantalla(texto, opciones, "Rama de Pronóstico Meteorológico", "eco_lista.png", atras)
+
+    def rama_costos_clima(atras=None):
+        texto = (
+            "--- IMPACTO ECONÓMICO ---\n\n"
+            "• Declarar alerta amarilla tiene un costo estimado de 80 millones de pesos, asociado a movilización preventiva, preparación de albergues y coordinación de equipos.\n\n"
+            "• Declarar alerta roja tiene un costo estimado de 250 millones de pesos e implica evacuar preventivamente a todas las familias que se encuentran en la zona de riesgo.\n\n"
+            "• Si no se declara alerta y ocurre una inundación, podrían resultar afectadas la mayoría de las familias en la zona de riesgo y los daños podrían superar los 3.000 millones de pesos.\n\n"
+            "¿Tomarías una decisión o solicitas más información?"
+        )
+        texto_info = "Solicito más información"
+
+        opciones = [
+            ("No tomar medidas (sin alertas)", lambda: evaluar_alerta("Ninguna", rama_consecuencias, texto_info, lambda: rama_costos_clima(atras))),
+            ("Emitir alerta amarilla", lambda: evaluar_alerta("Amarilla", rama_consecuencias, texto_info, lambda: rama_costos_clima(atras))),
+            ("Emitir alerta roja", lambda: evaluar_alerta("Roja", rama_consecuencias, texto_info, lambda: rama_costos_clima(atras))),
+            (texto_info, lambda: rama_consecuencias(lambda: rama_costos_clima(atras)))
+        ]
+        cambiar_pantalla(texto, opciones, "Rama de Costos Económicos", "eco_triste.png", atras)
+
+    def rama_consecuencias(atras=None):
+        texto = (
+            "--- CONSECUENCIAS ESTIMADAS POR INUNDACIÓN ---\n\n"
+            "Si ocurre la inundación, estas son las proyecciones estimadas según la decisión tomada:\n\n"
+            "• Sin alerta: 520 familias afectadas y 180 viviendas con daño mayor.\n\n"
+            "• Alerta Amarilla: 290 familias afectadas y 95 viviendas con daño mayor.\n\n"
+            "• Alerta Roja: 75 familias afectadas y 28 viviendas con daño mayor.\n\n"
+            "¿Tomarías una decisión o solicitas más información?"
+        )
+
+        opciones = [
+            ("No tomar medidas (sin alertas)", lambda: evaluar_alerta("Ninguna",None, None, lambda: rama_consecuencias(atras))),
+            ("Emitir alerta amarilla", lambda: evaluar_alerta("Amarilla",None, None, lambda: rama_consecuencias(atras))),
+            ("Emitir alerta roja", lambda: evaluar_alerta("Roja",None, None, lambda: rama_consecuencias(atras)))
+        ]
+        cambiar_pantalla(texto, opciones, "Rama de Consecuencias Estimadas", "eco_idea.png", atras)
+
+    def finalizar_simulacion_clima(tipo_alerta):
+        page.session.store.set("alerta_final", tipo_alerta)
+        mostrar_proyeccion_clima()
+
+    def mostrar_proyeccion_clima():
+        page.controls.clear()
+
+        page.add(componente_npc("Simulemos tu proceso de toma de decisiones para las 60 semanas que conforman los meses en riesgo (mayo, junio, julio, agosto y septiembre).", "eco_saludo.png"))
+        page.add(ft.Divider(height=10, color="transparent"))
+
+        page.add(ft.Text("📊 PROYECCIÓN A 60 SEMANAS", size=22, weight="bold", color=COLOR_AZUL_UCM, text_align=ft.TextAlign.CENTER))
+        page.add(ft.Divider(height=20, color="transparent"))
+
+        page.add(ft.Text("--- RESUMEN DE NAVEGACIÓN ---", weight="bold", color=COLOR_AZUL_UCM))
+
+        rama_anterior = ""
+        historial_actual = page.session.store.get("historial_decisiones")
+
+        for rama, decision in historial_actual:
+            if rama != rama_anterior:
+                page.add(ft.Text(f"📍 {rama}", weight="bold", color=ft.Colors.GREEN_600, size=14))
+                rama_anterior = rama
+
+            page.add(
+                ft.Container(
+                    content=ft.Text(f'↳ {decision}', size=13, color=ft.Colors.BLACK_87),
+                    padding=ft.Padding.only(left=20, bottom=5)
+                )
+            )
+
+        page.add(ft.Divider(height=20, color = "transparent"))
+
+        page.add(
+            ft.Text(
+                "💡 Importante: Al entrar al enlace, recuerda presionar el botón 'Comenzar' dentro de la simulación",
+                color=ft.Colors.RED_700,
+                weight="bold",
+                text_align=ft.TextAlign.CENTER
+            )
+        )
+
+        tipo_alerta = page.session.store.get("alerta_final")
+
+        links_codap_clima = {
+            "Ninguna": "",
+            "Amarilla": "",
+            "Roja": ""
+        }
+
+        enlace_seleccionado_clima = links_codap_clima.get(tipo_alerta, "")
+
+        boton_codap_clima = ft.ElevatedButton(
+            content=ft.Text("Ir a tu Proyección"),
+            icon=ft.Icons.BAR_CHART,
+            style=ft.ButtonStyle(bgcolor=ft.Colors.GREEN_600, color=ft.Colors.WHITE),
+            url=enlace_seleccionado_clima,
+            width=400
+        )
+
+        boton_siguiente = ft.ElevatedButton(
+            content=ft.Text("Siguiente ➡"),
+            style=ft.ButtonStyle(bgcolor=COLOR_AZUL_UCM, color=ft.Colors.WHITE),
+            on_click=lambda e: pantalla_reflexion_clima(),
+            width=400
+        )
+
+        page.add(boton_codap_clima)
+        page.add(ft.Divider(height=10, color="transparent"))
+        page.add(boton_siguiente)
+        page.update()
+
+        def pantalla_reflexion_clima():
+            page.controls.clear()
+
+            page.add(componente_npc(
+                "Analizando tu proyección a 60 semanas... ¿qué conclusiones sacas para tu futuro?",
+                "eco_lectura.png"
+            ))
+
+            page.add(ft.Divider(height=10, color="transparent"))
+
+            page.add(ft.Text("Reflexión Final: Gestión de Desastres Naturales", size=22, weight="bold", color=COLOR_AZUL_UCM))
+            page.add(ft.Text("Luego de ver el impacto económico y social estimado, ¿mantendrías tu decisión? Explica tu respuesta.", size=16))
+
+            campo_reflexion_clima = ft.TextField(
+                multiline=True,
+                min_lines=5,
+                border_color=COLOR_CELESTE_UCM,
+                hint_text="Escribe tus conclusiones sobre el clima y tu decisión aquí...",
+                width=400
+            )
+
+            def enviar_a_supabase_clima(e):
+                e.control.disabled = True
+                e.control.content = ft.Text("Guardando...")
+
+                anillo_carga = ft.Container(
+                    content=ft.ProgressRing(color=COLOR_CELESTE_UCM),
+                    alignment=ft.Alignment.CENTER,
+                    margin=ft.Margin.only(top=20)
+                )
+                page.add(anillo_carga)
+                page.update()
+
+                reflexion_estudiante_clima = campo_reflexion_clima.value
+
+                nombre_recuperado = page.session.store.get("nombre_usuario")
+                tipo_alerta = page.session.store.get("alerta_final")
+
+                if not nombre_recuperado:
+                    nombre_recuperado = "Estudiante Sin Nombre"
+
+                paquete_datos_clima = {
+                    "id": page.session.store.get("id_sesion"),
+                    "nombre_estudiante": nombre_recuperado,
+                    "tipo_simulador": "Catátrofes Climáticas",
+                    "historial_decisiones": page.session.store.get("historial_decisiones"),
+                    "reflexion_final": reflexion_estudiante_clima
+                }
+
+                try:
+                    respuesta = supabase.table("registro_simulaciones").insert(paquete_datos_clima).execute()
+                    print("✅ Éxito al guardar:", respuesta.data)
+
+                    page.controls.clear()
+
+                    page.add(
+                        componente_npc(
+                            "¡Datos guardados con éxito! Ha sido un placer acompañarte en esta simulación.", 
+                            "eco_lista.png"
+                        )
+                    )
+                    page.add(ft.Divider(height=10, color="transparent"))
+
+                    page.add(ft.Text(f'¡Muchas gracias por participar, {page.session.store.get("nombre_usuario")}!', size=20, color=ft.Colors.GREEN_700))
+                    page.add(ft.Text("Tus respuestas han sido guardadas con éxito.", size=16))
+
+                    boton_reiniciar_clima = ft.ElevatedButton(
+                        content=ft.Text("🔄 Realizar otra simulación"),
+                        style=ft.ButtonStyle(bgcolor=COLOR_AZUL_UCM, color=ft.Colors.WHITE),
+                        on_click=lambda _: pantalla_seleccion_simulador(),
+                        width=400
+                    )
+
+                    def cerrar_ventana_clima(e):
+                        page.controls.clear()
+
+                        page.vertical_alignment = ft.MainAxisAlignment.CENTER
+                        page.horizontal_alignment = ft.CrossAxisAlignment.CENTER
+                        
+                        pantalla_despedida_clima = ft.Column(
+                            controls=[
+                                ft.Container(
+                                    content=ft.Text(
+                                        "¡Simulación finalizada! Ya puedes devolver o bloquear este dispositivo.", 
+                                        color=ft.Colors.BLACK87,
+                                        size=16,
+                                        text_align=ft.TextAlign.CENTER
+                                    ),
+                                    bgcolor=ft.Colors.WHITE,
+                                    padding=20,
+                                    border_radius=20,
+                                    border=ft.Border.all(2, COLOR_CELESTE_UCM),
+                                    width=350,
+                                    margin=ft.Margin.only(bottom=20)
+                                ),
+                                ft.Image(src="adios.png", width=300, height=300, fit="contain")
+                            ],
+                        horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+                        alignment=ft.MainAxisAlignment.CENTER,
+                        spacing=0
+                        )
+
+                        page.add(pantalla_despedida_clima)
+                        page.update()
+
+                    boton_cerrar_clima = ft.ElevatedButton(
+                        content=ft.Text("❌ Salir del Simulador"),
+                        style=ft.ButtonStyle(bgcolor=ft.Colors.RED_700, color=ft.Colors.WHITE),
+                        on_click=cerrar_ventana_clima,
+                        width=400
+                    )
+
+                    page.add(ft.Divider(height=20, color="transparent"))
+                    page.add(boton_reiniciar_clima)
+                    page.add(ft.Divider(height=10, color="transparent"))
+                    page.add(boton_cerrar_clima)
+                    page.update()
+
+                except Exception as error:
+
+                    print("❌ Error al guardar en Supabase", error)
+
+            boton_enviar_clima = ft.ElevatedButton(
+                content=ft.Text("Finalizar y Guardar"),
+                style=ft.ButtonStyle(bgcolor=ft.Colors.GREEN_600, color=ft.Colors.WHITE),
+                on_click=enviar_a_supabase_clima, 
+                width=400
+            )
+
+            page.add(campo_reflexion_clima)
+            page.add(ft.Divider(height=10, color="transparent"))
+            page.add(boton_enviar_clima)
+
+            page.update()
+
+
 
     pantalla_bienvenida()
     
