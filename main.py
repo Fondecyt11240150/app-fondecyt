@@ -69,9 +69,14 @@ def main(page: ft.Page):
     def cambiar_pantalla(texto_principal, opciones, nombre_rama="General", imagen_npc="idea.png", funcion_atras=None):
         page.controls.clear()
 
+        fragmentos = texto_principal if isinstance(texto_principal, list) else [texto_principal]
+        paso_actual = [0]
+
+        npc_control = componente_npc(fragmentos[paso_actual[0]], imagen_npc)
+
         page.add(
             ft.Container(
-                content=componente_npc(texto_principal, imagen_npc),
+                content=npc_control,
                 margin=ft.Margin.only(bottom=30, top=20)
             )
         )
@@ -84,6 +89,8 @@ def main(page: ft.Page):
             if funcion_destino:
                 funcion_destino()
         
+        columna_opciones = ft.Column(horizontal_alignment=ft.CrossAxisAlignment.CENTER, spacing=0)
+        
         for texto_boton, funcion_destino in opciones:
             boton = ft.ElevatedButton(
                 content=ft.Text(texto_boton, size=14, weight="bold", text_align=ft.TextAlign.CENTER),
@@ -95,12 +102,12 @@ def main(page: ft.Page):
                 height=55,  # Usamos height en lugar de padding para darle buen tamaño
                 on_click=lambda e, t=texto_boton, f=funcion_destino: manejar_clic(e, t, f)
             )
-            page.add(boton)
-            page.add(ft.Divider(height=5, color="transparent"))
+            columna_opciones.controls.append(boton)
+            columna_opciones.controls.append(ft.Divider(height=5, color="transparent"))  # Espacio entre botones
         
         # Botón dinámico para regresar en el árbol
         if funcion_atras:
-            page.add(ft.Divider(height=10, color="transparent"))
+            columna_opciones.controls.append(ft.Divider(height=10, color="transparent"))
             boton_atras = ft.ElevatedButton(
                 content=ft.Text("Volver atrás", size=15, weight="bold"),
                 style=ft.ButtonStyle(
@@ -111,8 +118,59 @@ def main(page: ft.Page):
                 height=55,  # Usamos height en lugar de padding
                 on_click=lambda e: funcion_atras()
             )
-            page.add(boton_atras)
-        
+            columna_opciones.controls.append(boton_atras)
+
+        if len(fragmentos) > 1:
+            columna_opciones.visible = False
+
+            boton_anterior = ft.ElevatedButton(
+                "Anterior",
+                style=ft.ButtonStyle(bgcolor=ft.Colors.BLUE_GREY_500, color=ft.Colors.WHITE),
+                visible=False,
+                width=140
+            )
+
+            boton_siguiente = ft.ElevatedButton(
+                "Siguiente",
+                style=ft.ButtonStyle(bgcolor=ft.Colors.GREEN_600, color=ft.Colors.WHITE),
+                width=140,
+            )
+
+            fila_lectura = ft.Row(
+                controls=[boton_anterior, boton_siguiente],
+                alignment=ft.MainAxisAlignment.CENTER,
+                width=400,
+            )
+
+            def actualizar_pantalla_lectura():
+                npc_control.controls[1].content.value = fragmentos[paso_actual[0]]
+
+                boton_anterior.visible = paso_actual[0] > 0
+
+                if paso_actual[0] == len(fragmentos) - 1:
+                    boton_siguiente.visible = False
+                    columna_opciones.visible = True
+                else:
+                    boton_siguiente.visible = True
+                    columna_opciones.visible = False
+
+                page.update()
+
+            def avanzar_texto(e):
+                if paso_actual[0] < len(fragmentos) - 1:
+                    paso_actual[0] += 1
+                    actualizar_pantalla_lectura()
+
+            def retroceder_texto(e):
+                if paso_actual[0] > 0:
+                    paso_actual[0] -= 1
+                    actualizar_pantalla_lectura()
+
+            boton_siguiente.on_click = avanzar_texto
+            boton_anterior.on_click = retroceder_texto
+            page.add(fila_lectura)
+
+        page.add(columna_opciones)
         page.update()
 
     def pantalla_bienvenida():
@@ -323,34 +381,97 @@ def main(page: ft.Page):
 
     def pantalla_contexto_grooming(atras=None):
         page.controls.clear()
-
         page.vertical_alignment = ft.MainAxisAlignment.START
 
-        texto_contexto = "Contexto: Las tiendas de mascotas y servicios de 'grooming' (peluquería y cuidado animal) han tenido un gran auge durante los últimos años, convirtiéndose en un negocio muy rentable.\n\nEn este simulador, tomarás decisiones para proteger tu inversión inicial."
+        # 1. Dividimos el texto en fragmentos (viñetas)
+        fragmentos = [
+            "Contexto: Las tiendas de mascotas y servicios de 'grooming' (peluquería y cuidado animal) han tenido un gran auge durante los últimos años, convirtiéndose en un negocio muy rentable.",
+            "En este simulador, tomarás decisiones para proteger tu inversión inicial. ¡Prepárate para administrar tu negocio!"
+        ]
+        paso_actual = [0]
+
+        # 2. Creamos el NPC con el primer texto
+        npc_control = componente_npc(fragmentos[0], "idea.png")
+
+        # 3. Creamos los botones pequeños de navegación (con los tamaños ajustados)
+        boton_anterior = ft.ElevatedButton(
+            "⬅ Anterior", 
+            style=ft.ButtonStyle(bgcolor=ft.Colors.GREY_400, color=ft.Colors.WHITE, padding=10),
+            visible=False, # No se muestra en el primer paso
+            width=140
+        )
+        
+        boton_siguiente = ft.ElevatedButton(
+            "Siguiente ➡",
+            style=ft.ButtonStyle(bgcolor=COLOR_CELESTE_UCM, color=ft.Colors.WHITE, padding=10),
+            width=140
+        )
+
+        # Fila para los botones pequeños
+        fila_lectura = ft.Row(
+            controls=[boton_anterior, boton_siguiente], 
+            alignment=ft.MainAxisAlignment.CENTER, 
+            spacing=20, 
+            width=400
+        )
+
+        # 4. El botón final grande que iniciará la simulación
+        boton_comenzar = ft.ElevatedButton(
+            "Comenzar Simulación",
+            style=ft.ButtonStyle(bgcolor=COLOR_CELESTE_UCM, color=ft.Colors.WHITE, padding=20),
+            width=400,
+            visible=False, # Oculto hasta llegar al último texto
+            on_click=lambda e: iniciar_seguro(atras=lambda: pantalla_contexto_grooming(atras))
+        )
+
+        # 5. Lógica para actualizar la pantalla al avanzar o retroceder
+        def actualizar_pantalla():
+            npc_control.controls[1].content.value = fragmentos[paso_actual[0]]
+            
+            # Mostrar u ocultar botón anterior
+            boton_anterior.visible = paso_actual[0] > 0
+            
+            # Si llegamos al final, cambiamos Siguiente por Comenzar
+            if paso_actual[0] == len(fragmentos) - 1:
+                boton_siguiente.visible = False
+                boton_comenzar.visible = True
+            else:
+                boton_siguiente.visible = True
+                boton_comenzar.visible = False
+                
+            page.update()
+
+        def avanzar_texto(e):
+            if paso_actual[0] < len(fragmentos) - 1:
+                paso_actual[0] += 1
+                actualizar_pantalla()
+
+        def retroceder_texto(e):
+            if paso_actual[0] > 0:
+                paso_actual[0] -= 1
+                actualizar_pantalla()
+
+        boton_siguiente.on_click = avanzar_texto
+        boton_anterior.on_click = retroceder_texto
+
+        # 6. Ensamblamos todo en la columna principal
         elementos = ft.Column(
             controls=[
-                componente_npc(texto_contexto, "idea.png"),
-                
-                # 3. Reducimos el height a 200 para matar el espacio transparente
+                npc_control,
                 ft.Image(src="tienda_mascotas.png", width=400, height=200, fit=ft.BoxFit.CONTAIN, border_radius=10),
-                
-                ft.ElevatedButton(
-                    "Comenzar Simulación",
-                    style=ft.ButtonStyle(bgcolor=COLOR_CELESTE_UCM, color=ft.Colors.WHITE, padding=20),
-                    width=400,
-                    on_click=lambda e: iniciar_seguro(atras=lambda: pantalla_contexto_grooming(atras))
-                )
+                fila_lectura,
+                boton_comenzar
             ],
             horizontal_alignment=ft.CrossAxisAlignment.CENTER,
-            spacing=15 # <--- Esta es la distancia exacta entre el robot, la foto y el botón
+            spacing=15 
         )
+
         if atras:
             elementos.controls.append(ft.Divider(height=5, color="transparent"))
             elementos.controls.append(ft.ElevatedButton("Volver atrás", on_click=lambda e: atras(), width=400, style=ft.ButtonStyle(bgcolor=ft.Colors.GREY_300, color=COLOR_AZUL_UCM, padding=20)))
 
         page.add(elementos)
         page.update()
-
         #RAMA DE ACEPTACIÓN DINÁMICA
 
     def rama_aceptacion_base(funcion_informacion_siguiente, texto_info_siguiente, mostrar_en_seleccion=False, atras=None):
@@ -407,7 +528,9 @@ def main(page: ft.Page):
         cambiar_pantalla(texto, opciones, "Rama de Rechazo de Seguro", "rechazo.png", atras)
     
     def rama_gastos(atras=None):
-        texto = "--- INFORMACIÓN DE GASTOS ---\n\nLos gastos mensuales del local(arriendo, pago de servicios y otros) equivalen a $450.000\n\nTu inversión inicial para instalar y habilitar el negocio fue de $3.000.000.\n\nEl negocio proyecta una ganancia neta (lo que queda después de pagar los gastos) con un promedio mensual de $900.000.\n\n¿Tomarías el seguro?"
+        texto = ["Los gastos mensuales del local(arriendo, pago de servicios y otros) equivalen a $450.000\n\nTu inversión inicial para instalar y habilitar el negocio fue de $3.000.000.",
+                 "El negocio proyecta una ganancia neta (lo que queda después de pagar los gastos) con un promedio mensual de $900.000.",
+                 "¿Tomarías el seguro?"]
         texto_info_ofrecen = "No, necesito más información sobre lo que ofrecen los seguros antes de tomar una decisión"
         
         opciones = [
@@ -419,7 +542,13 @@ def main(page: ft.Page):
         cambiar_pantalla(texto, opciones, "Rama de Información de Gastos", "lista.png", atras)
 
     def rama_ofrecen(atras=None):
-        texto = "--- INFORMACIÓN DE COBERTURA ---\n\nLa compañía ofrece dos tipos de seguros\n\n• Seguro Full: Prima mensual de $90.000. Cubre pérdida total por daños en la infraestructura del local y, además, daños o pérdidas de las mercancías, por conceptos de robo o siniestros.\n\n• Seguro Parcial: Prima mensual de $40.000. Cubre pérdida por daños en la infraestructura o bien daños o pérdidas en las mercancías, por concepto de robos o siniestros, con un tope máximo de $2.000.000.\n\n¿Tomarías alguno de los seguros?"
+        texto = [
+            "--- INFORMACIÓN DE COBERTURA ---",
+            "La compañía ofrece dos tipos de seguros",
+            "Seguro Full: Prima mensual de $90.000. Cubre pérdida total por daños en la infraestructura del local y, además, daños o pérdidas de las mercancías, por conceptos de robo o siniestros.",
+            "• Seguro Parcial: Prima mensual de $40.000. Cubre pérdida por daños en la infraestructura o bien daños o pérdidas en las mercancías, por concepto de robos o siniestros, con un tope máximo de $2.000.000.",
+            "¿Tomarías alguno de los seguros?"
+        ]
         texto_info_riesgos = "No, necesito información sobre los riesgos a los que está expuesto el negocio antes de tomar una decisión"
         
         opciones = [
@@ -430,7 +559,14 @@ def main(page: ft.Page):
         cambiar_pantalla(texto, opciones, "Rama Información de Seguros", "lista.png", atras)
     
     def rama_riesgos(atras=None):
-        texto = "--- INFORMACIÓN DE RIESGOS ---\n\nEn el sector donde estará el local comercial de tu futuro negocio, se sabe que:\n\n• Se reporta una tasa promedio mensual de 20% de robos menores.\n\n• Se reporta una tasa promedio mensual de 10% de robos mayores.\n\n• Se reporta una tasa promedio anual de 5% de siniestros catastróficos (incendios, inundaciones u otros)\n\n¿Tomarías el seguro?"
+        texto = [
+            "--- INFORMACIÓN DE RIESGOS ---",
+            "En el sector donde estará el local comercial de tu futuro negocio, se sabe que:",
+            "• Se reporta una tasa promedio mensual de 20% de robos menores.",
+            "• Se reporta una tasa promedio mensual de 10% de robos mayores.",
+            "• Se reporta una tasa promedio anual de 5% de siniestros catastróficos (incendios, inundaciones u otros)",
+            "¿Tomarías el seguro?"
+        ]
         texto_info_costos = "No, necesito más información sobre los costos si sufro un robo o un siniestro antes de tomar una decisión"
         
         opciones = [
@@ -441,8 +577,14 @@ def main(page: ft.Page):
         cambiar_pantalla(texto, opciones, "Rama Información de Riesgos", "lista.png", atras)
 
     def rama_costos(atras=None):
-        texto = "--- INFORMACIÓN DE COSTOS POR ROBO O SINIESTRO ---\n\nSegún registros de las autoridades locales, se sabe que:\n\n• Se reporta un costo promedio de $600.000 por sufrir robos menores.\n\n• Se reporta un costo promedio de $3.000.000 por sufrir robos mayores.\n\n• Se reporta que al sufrir un siniestro catastrófico (incendios, inundaciones u otros) la pérdida de tu patrimonio es total y para seguir con tu negocio se debe comenzar desde cero.\n\n¿Tomarías el seguro?"
-        
+        texto = [
+            "--- INFORMACIÓN DE COSTOS POR ROBO O SINIESTRO ---",
+            "Según registros de las autoridades locales, se sabe que:",
+            "• Se reporta un costo promedio de $600.000 por sufrir robos menores.",
+            "• Se reporta un costo promedio de $3.000.000 por sufrir robos mayores.",
+            "• Se reporta que al sufrir un siniestro catastrófico (incendios, inundaciones u otros) la pérdida de tu patrimonio es total y para seguir con tu negocio se debe comenzar desde cero.",
+            "¿Tomarías el seguro?"
+        ]
         opciones = [
             ("Sí, tomaría un seguro", lambda: rama_aceptacion_base(None, None, False, lambda: rama_costos(atras))),
             ("No tomaría un seguro", lambda: finalizar_simulacion("Ninguno"))
@@ -660,27 +802,42 @@ def main(page: ft.Page):
         page.controls.clear()
         page.vertical_alignment = ft.MainAxisAlignment.START
 
-        texto_contexto = (
-            "Contexto: El cambio climático y fenómenos como 'El Niño' han aumentado la intensidad "
-            "de los desastres naturales en nuestro país, poniendo en constante riesgo a miles de familias y viviendas.\n\n"
-            "La gestión de riesgos ambientales exige tomar decisiones difíciles con rapidez, equilibrando "
-            "la seguridad de las personas, los costos operativos y la incertidumbre de los pronósticos.\n\n"
-            "En este simulador, tu misión será interpretar datos meteorológicos y decidir medidas "
-            "preventivas para proteger a tu comunidad frente a una catástrofe inminente. ¡Buena suerte!"
+        fragmentos = [
+            "Contexto: El cambio climático y fenómenos como 'El Niño' han aumentado la intensidad de los desastres naturales en nuestro país, poniendo en constante riesgo a miles de familias y viviendas.",
+            "La gestión de riesgos ambientales exige tomar decisiones difíciles con rapidez, equilibrando la seguridad de las personas, los costos operativos y la incertidumbre de los pronósticos.",
+            "En este simulador, tu misión será interpretar datos meteorológicos y decidir medidas preventivas para proteger a tu comunidad frente a una catástrofe inminente. ¡Buena suerte!"
+        ]
+
+        paso_actual = [0]
+
+        npc_control = componente_npc(fragmentos[paso_actual[0]], "eco_saludo.png")
+
+        boton_accion = ft.ElevatedButton(
+            "Siguiente",
+            style = ft.ButtonStyle(bgcolor=COLOR_CELESTE_UCM, color = ft.Colors.WHITE, padding=20),
+            width=400,
         )
+
+        def avanzar_texto(e):
+            if paso_actual[0] < len(fragmentos) - 1:
+                paso_actual[0] += 1
+
+                npc_control.controls[1].content.value = fragmentos[paso_actual[0]]
+
+                if paso_actual[0] == len(fragmentos) - 1:
+                    boton_accion.text = "Comenzar Simulación"
+                    boton_accion.style.bgcolor = ft.Colors.GREEN_600
+                page.update()
+            else:
+                iniciar_clima(atras=lambda: pantalla_contexto_clima(atras))
+
+        boton_accion.on_click = avanzar_texto
 
         elementos = ft.Column(
             controls=[
-                componente_npc(texto_contexto, "eco_saludo.png"),
-
+                npc_control,
                 ft.Image(src="clima.png", width=400, height=200, fit=ft.BoxFit.CONTAIN, border_radius=10),
-
-                ft.ElevatedButton(
-                    "Comenzar Simulación",
-                    style=ft.ButtonStyle(bgcolor=ft.Colors.GREEN_600, color=ft.Colors.WHITE, padding=20),
-                    width=400,
-                    on_click=lambda e: iniciar_clima(atras=lambda: pantalla_contexto_clima(atras))
-                )
+                boton_accion
             ],
             horizontal_alignment=ft.CrossAxisAlignment.CENTER,
             spacing=15
@@ -729,13 +886,12 @@ def main(page: ft.Page):
         cambiar_pantalla(texto, opciones, "Inicio del Simulador", "eco_lectura.png", atras)
 
     def rama_pronostico(atras=None):
-        texto = (
-            "--- PRONÓSTICO METEOROLÓGICO ---\n\n"
-            "• El pronóstico indica una probabilidad del 60 % de que durante los próximos cinco días se acumulen al menos 180 mm  de lluvia.\n\n"
-            "• Si ese nivel de precipitación llega a registrarse, se estima una probabilidad del 40 % de que el río se desborde. Además existe un 50 % de probabilidad de que la isoterma cero supere los 3.000 metros.\n\n"
-            "• Si coinciden ambos eventos, la probabilidad de desborde aumenta al 65 %.\n\n"
+        texto = [
+            "El pronóstico indica una probabilidad del 60 % de que durante los próximos cinco días se acumulen al menos 180 mm  de lluvia.",
+            "Si ese nivel de precipitación llega a registrarse, se estima una probabilidad del 40 % de que el río se desborde. Además existe un 50 % de probabilidad de que la isoterma cero supere los 3.000 metros.",
+            "Si coinciden ambos eventos, la probabilidad de desborde aumenta al 65 %.",
             "¿Tomarías una decisión o solicitas más información?"
-        )
+        ]
         texto_info = "Solicito más información"
 
         opciones = [
@@ -747,13 +903,12 @@ def main(page: ft.Page):
         cambiar_pantalla(texto, opciones, "Rama de Pronóstico Meteorológico", "eco_lista.png", atras)
 
     def rama_costos_clima(atras=None):
-        texto = (
-            "--- IMPACTO ECONÓMICO ---\n\n"
-            "• Declarar alerta amarilla tiene un costo estimado de 80 millones de pesos, asociado a movilización preventiva, preparación de albergues y coordinación de equipos.\n\n"
-            "• Declarar alerta roja tiene un costo estimado de 250 millones de pesos e implica evacuar preventivamente a todas las familias que se encuentran en la zona de riesgo.\n\n"
-            "• Si no se declara alerta y ocurre una inundación, podrían resultar afectadas la mayoría de las familias en la zona de riesgo y los daños podrían superar los 3.000 millones de pesos.\n\n"
+        texto = [
+            "Declarar alerta amarilla tiene un costo estimado de 80 millones de pesos, asociado a movilización preventiva, preparación de albergues y coordinación de equipos.",
+            "Declarar alerta roja tiene un costo estimado de 250 millones de pesos e implica evacuar preventivamente a todas las familias que se encuentran en la zona de riesgo.",
+            "Si no se declara alerta y ocurre una inundación, podrían resultar afectadas la mayoría de las familias en la zona de riesgo y los daños podrían superar los 3.000 millones de pesos.",
             "¿Tomarías una decisión o solicitas más información?"
-        )
+        ]
         texto_info = "Solicito más información"
 
         opciones = [
@@ -765,14 +920,13 @@ def main(page: ft.Page):
         cambiar_pantalla(texto, opciones, "Rama de Costos Económicos", "eco_triste.png", atras)
 
     def rama_consecuencias(atras=None):
-        texto = (
-            "--- CONSECUENCIAS ESTIMADAS POR INUNDACIÓN ---\n\n"
-            "Si ocurre la inundación, estas son las proyecciones estimadas según la decisión tomada:\n\n"
-            "• Sin alerta: 520 familias afectadas y 180 viviendas con daño mayor.\n\n"
-            "• Alerta Amarilla: 290 familias afectadas y 95 viviendas con daño mayor.\n\n"
-            "• Alerta Roja: 75 familias afectadas y 28 viviendas con daño mayor.\n\n"
+        texto = [
+            "Si ocurre la inundación, estas son las proyecciones estimadas según la decisión tomada:",
+            "• Sin alerta: 520 familias afectadas y 180 viviendas con daño mayor.",
+            "• Alerta Amarilla: 290 familias afectadas y 95 viviendas con daño mayor.",
+            "• Alerta Roja: 75 familias afectadas y 28 viviendas con daño mayor.",
             "¿Tomarías una decisión o solicitas más información?"
-        )
+        ]
 
         opciones = [
             ("No tomar medidas (sin alertas)", lambda: evaluar_alerta("Ninguna",None, None, lambda: rama_consecuencias(atras))),
@@ -825,9 +979,9 @@ def main(page: ft.Page):
         tipo_alerta = page.session.store.get("alerta_final")
 
         links_codap_clima = {
-            "Ninguna": "",
-            "Amarilla": "",
-            "Roja": ""
+            "Ninguna": "https://codap.concord.org/app/?v=3#shared=https%3A%2F%2Fcfm-shared.concord.org%2Fj2McETA6gaWRv3maEFtD%2Ffile.json",
+            "Amarilla": "https://codap.concord.org/app/?v=3#shared=https%3A%2F%2Fcfm-shared.concord.org%2F8lTOt6Bzb5xCIwCXCXRS%2Ffile.json",
+            "Roja": "https://codap.concord.org/app/?v=3#shared=https%3A%2F%2Fcfm-shared.concord.org%2FOTQaGqD9tIlZrZioIhE8%2Ffile.json"
         }
 
         enlace_seleccionado_clima = links_codap_clima.get(tipo_alerta, "")
