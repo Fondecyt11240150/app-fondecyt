@@ -942,10 +942,10 @@ def main(page: ft.Page):
     def mostrar_proyeccion_clima():
         page.controls.clear()
 
-        page.add(componente_npc("Simulemos tu proceso de toma de decisiones para las 60 semanas que conforman los meses en riesgo (mayo, junio, julio, agosto y septiembre).", "eco_saludo.png"))
+        page.add(componente_npc("Simulemos tu proceso de toma de decisiones para las 22 semanas que conforman los meses en riesgo (mayo, junio, julio, agosto y septiembre).", "eco_saludo.png"))
         page.add(ft.Divider(height=10, color="transparent"))
 
-        page.add(ft.Text("📊 PROYECCIÓN A 60 SEMANAS", size=22, weight="bold", color=COLOR_AZUL_UCM, text_align=ft.TextAlign.CENTER))
+        page.add(ft.Text("📊 PROYECCIÓN A 22 SEMANAS", size=22, weight="bold", color=COLOR_AZUL_UCM, text_align=ft.TextAlign.CENTER))
         page.add(ft.Divider(height=20, color="transparent"))
 
         page.add(ft.Text("--- RESUMEN DE NAVEGACIÓN ---", weight="bold", color=COLOR_AZUL_UCM))
@@ -1010,7 +1010,7 @@ def main(page: ft.Page):
             page.controls.clear()
 
             page.add(componente_npc(
-                "Analizando tu proyección a 60 semanas... ¿qué conclusiones sacas para tu futuro?",
+                "Analizando tu proyección a 22 semanas... ¿qué conclusiones sacas para tu futuro?",
                 "eco_lectura.png"
             ))
 
