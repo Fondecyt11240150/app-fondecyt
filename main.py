@@ -82,6 +82,11 @@ def main(page: ft.Page):
         )
 
         def manejar_clic(e, texto_elegido, funcion_destino):
+            for control in columna_opciones.controls:
+                if isinstance(control, ft.ElevatedButton):
+                    control.disabled = True
+            page.update()
+
             historial = page.session.store.get("historial_decisiones")
             historial.append((nombre_rama, texto_elegido))
             page.session.store.set("historial_decisiones", historial)
@@ -683,6 +688,19 @@ def main(page: ft.Page):
         )
 
         def enviar_a_supabase(e):
+            # 1. Obtenemos el texto y le quitamos los espacios en blanco de los extremos
+            reflexion_estudiante = campo_reflexion.value.strip()
+
+            # SOLUCIÓN PUNTO 3 (A): Validar que el campo no esté vacío
+            if not reflexion_estudiante:
+                campo_reflexion.error_text = "⚠️ Este campo es obligatorio. Escribe tu reflexión."
+                page.update()
+                return # Detiene la función aquí mismo si está vacío
+                
+            # Si pasamos la validación, limpiamos cualquier error previo
+            campo_reflexion.error_text = None
+
+            # 2. Desactivamos el botón y mostramos carga
             e.control.disabled = True
             e.control.content = ft.Text("Guardando...")
 
@@ -693,8 +711,6 @@ def main(page: ft.Page):
             )
             page.add(anillo_carga)
             page.update()
-
-            reflexion_estudiante = campo_reflexion.value
 
             nombre_recuperado = page.session.store.get("nombre_usuario")
 
@@ -718,7 +734,7 @@ def main(page: ft.Page):
                 page.add(
                     componente_npc(
                         "¡Datos guardados con éxito! Ha sido un placer acompañarte en esta simulación.", 
-                        "registro.png"  # Puedes usar saludo o celebracion, la que prefieras
+                        "registro.png"  
                     )
                 )
                 page.add(ft.Divider(height=10, color="transparent"))
@@ -739,13 +755,12 @@ def main(page: ft.Page):
                     page.vertical_alignment = ft.MainAxisAlignment.CENTER
                     page.horizontal_alignment = ft.CrossAxisAlignment.CENTER
                     
-                    # 3. Creamos la columna centrada: Texto arriba, NPC abajo
                     pantalla_despedida = ft.Column(
                         controls=[
                             ft.Container(
                                 content=ft.Text(
                                     "¡Simulación finalizada! Ya puedes devolver o bloquear este dispositivo.", 
-                                    color=ft.Colors.BLACK87, 
+                                    color=ft.Colors.BLACK_87, 
                                     size=16, 
                                     text_align=ft.TextAlign.CENTER
                                 ),
@@ -754,11 +769,9 @@ def main(page: ft.Page):
                                 border_radius=20, 
                                 border=ft.Border.all(2, COLOR_CELESTE_UCM),
                                 width=350,
-                                # Un pequeño margen inferior para que no quede pegado a la cabeza del robot
                                 margin=ft.Margin.only(bottom=20) 
                             ),
                             
-                            # El NPC ahora va debajo del contenedor
                             ft.Image(src="adios.png", width=300, height=300, fit="contain")
                         ],
                         horizontal_alignment=ft.CrossAxisAlignment.CENTER,
@@ -783,15 +796,30 @@ def main(page: ft.Page):
                 page.update()
 
             except Exception as error:
-
                 print("❌ Error al guardar en Supabase:", error)
+                
+                # SOLUCIÓN PUNTO 3 (B): Evitar carga infinita si hay error de red
+                page.controls.remove(anillo_carga) # Quitamos el círculo de carga
+                e.control.disabled = False         # Volvemos a habilitar el botón
+                e.control.content = ft.Text("Reintentar Guardar")
+                
+                page.add(
+                    ft.Text(
+                        "❌ Error de red (Supabase inaccesible). Intenta nuevamente o cierra la app si el problema persiste.",
+                        color=ft.Colors.RED_700,
+                        weight="bold",
+                        text_align=ft.TextAlign.CENTER
+                    )
+                )
+                page.update()
         
         boton_enviar = ft.ElevatedButton(
             content=ft.Text("Finalizar y Guardar"),
             style=ft.ButtonStyle(bgcolor=ft.Colors.GREEN_600, color=ft.Colors.WHITE),
-            on_click=enviar_a_supabase, # <--- Al hacer clic, dispara la conexión
+            on_click=enviar_a_supabase, 
             width=400
             )
+            
         page.add(campo_reflexion)
         page.add(ft.Divider(height=10, color="transparent"))
         page.add(boton_enviar)
@@ -874,16 +902,57 @@ def main(page: ft.Page):
             "Cada semana se debe volver a tomar una decisión ante la inminente presencia del fenómeno del Súper Niño.\n\n"
             "¿Qué decisión tomarías?"
         )
-        texto_info = "Necesito más información para tomar una decisión"
 
         opciones = [
             ("No tomar medidas (sin alertas)", lambda: evaluar_alerta("Ninguna", rama_pronostico, "Solicito más información", lambda: iniciar_clima(atras))),
             ("Emitir alerta amarilla", lambda: evaluar_alerta("Amarilla", rama_pronostico, "Solicito más información", lambda: iniciar_clima(atras))),
             ("Emitir alerta roja", lambda: evaluar_alerta("Roja", rama_pronostico, "Solicito más información", lambda: iniciar_clima(atras))),
-            (texto_info, lambda: rama_pronostico(lambda: iniciar_clima(atras)))
+            
+            # Va a la caja amarilla de definiciones (Foto 5)
+            ("Necesito más información para tomar una decisión", lambda: rama_definiciones_alertas(lambda: iniciar_clima(atras)))
         ]
 
         cambiar_pantalla(texto, opciones, "Inicio del Simulador", "eco_lectura.png", atras)
+
+    def rama_definiciones_alertas(atras=None):
+        texto = [
+            "Sin alerta: No se activan medidas extraordinarias. Se mantiene el funcionamiento normal y solo se observa la evolución del evento.",
+            "Alerta amarilla: Se activa parcialmente el sistema de respuesta: vigilancia reforzada, preparación de albergues, coordinación de equipos, revisión de rutas de evacuación y comunicación preventiva a la población.",
+            "Alerta roja: Se movilizan todos los recursos necesarios y se ordena la evacuación de las familias que viven en las zonas riesgosas. ¿Tomas una decisión o solicitas más información?"
+        ]
+
+        opciones = [
+            ("Tomar decisión", lambda: rama_seleccion_post_info(lambda: rama_definiciones_alertas(atras))),
+            ("Solicitar más información", lambda: rama_pronostico(lambda: rama_definiciones_alertas(atras)))
+        ]
+
+        cambiar_pantalla(texto, opciones, "Definiciones de Alertas", "eco_lista.png", atras)
+
+    def rama_seleccion_post_info(atras=None):
+        texto = "¿Qué decisión preventiva tomarías ahora?"
+
+        opciones = [
+            ("No tomar medidas (sin alertas)", lambda: evaluar_alerta_final("Ninguna", lambda: rama_seleccion_post_info(atras))),
+            ("Emitir alerta amarilla", lambda: evaluar_alerta_final("Amarilla", lambda: rama_seleccion_post_info(atras))),
+            ("Emitir alerta roja", lambda: evaluar_alerta_final("Roja", lambda: rama_seleccion_post_info(atras)))
+        ]
+
+        cambiar_pantalla(texto, opciones, "Selección Post-Información", "eco_indicar.png", atras)
+
+    def evaluar_alerta_final(tipo_alerta, atras=None):
+
+        if tipo_alerta == "Ninguna":
+            texto = "Has elegido no tomar medidas preventivas (sin alertas).\n\n¿Confirmas tu elección para avanzar a la simulación?"
+        elif tipo_alerta == "Amarilla":
+            texto = "Has elegido emitir una alerta amarilla.\n\n¿Confirmas tu elección para avanzar a la simulación?"
+        else:
+            texto = "Has elegido emitir una alerta roja.\n\n¿Confirmas tu elección para avanzar a la simulación?"
+
+        opciones = [
+            ("Sí, quiero tomar esta decisión", lambda: finalizar_simulacion_clima(tipo_alerta)),
+        ]
+
+        cambiar_pantalla(texto, opciones, f'Confirmación de Alerta {tipo_alerta}', "eco_indicar.png", atras)
 
     def rama_pronostico(atras=None):
         texto = [
@@ -1028,6 +1097,19 @@ def main(page: ft.Page):
             )
 
             def enviar_a_supabase_clima(e):
+                # 1. Obtenemos el texto y le quitamos los espacios en blanco de los extremos
+                reflexion_estudiante_clima = campo_reflexion_clima.value.strip()
+
+                # SOLUCIÓN PUNTO 3 (A): Validar que el campo no esté vacío
+                if not reflexion_estudiante_clima:
+                    campo_reflexion_clima.error_text = "⚠️ Este campo es obligatorio. Escribe tu reflexión."
+                    page.update()
+                    return # Detiene la función aquí mismo si está vacío
+                    
+                # Si pasamos la validación, limpiamos cualquier error previo
+                campo_reflexion_clima.error_text = None
+
+                # 2. Desactivamos el botón y mostramos carga
                 e.control.disabled = True
                 e.control.content = ft.Text("Guardando...")
 
@@ -1039,8 +1121,6 @@ def main(page: ft.Page):
                 page.add(anillo_carga)
                 page.update()
 
-                reflexion_estudiante_clima = campo_reflexion_clima.value
-
                 nombre_recuperado = page.session.store.get("nombre_usuario")
                 tipo_alerta = page.session.store.get("alerta_final")
 
@@ -1050,7 +1130,7 @@ def main(page: ft.Page):
                 paquete_datos_clima = {
                     "id": page.session.store.get("id_sesion"),
                     "nombre_estudiante": nombre_recuperado,
-                    "tipo_simulador": "Catátrofes Climáticas",
+                    "tipo_simulador": "Catástrofes Climáticas",
                     "historial_decisiones": page.session.store.get("historial_decisiones"),
                     "reflexion_final": reflexion_estudiante_clima
                 }
@@ -1090,7 +1170,7 @@ def main(page: ft.Page):
                                 ft.Container(
                                     content=ft.Text(
                                         "¡Simulación finalizada! Ya puedes devolver o bloquear este dispositivo.", 
-                                        color=ft.Colors.BLACK87,
+                                        color=ft.Colors.BLACK_87,
                                         size=16,
                                         text_align=ft.TextAlign.CENTER
                                     ),
@@ -1103,9 +1183,9 @@ def main(page: ft.Page):
                                 ),
                                 ft.Image(src="adios.png", width=300, height=300, fit="contain")
                             ],
-                        horizontal_alignment=ft.CrossAxisAlignment.CENTER,
-                        alignment=ft.MainAxisAlignment.CENTER,
-                        spacing=0
+                            horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+                            alignment=ft.MainAxisAlignment.CENTER,
+                            spacing=0
                         )
 
                         page.add(pantalla_despedida_clima)
@@ -1125,8 +1205,22 @@ def main(page: ft.Page):
                     page.update()
 
                 except Exception as error:
-
                     print("❌ Error al guardar en Supabase", error)
+
+                    # SOLUCIÓN PUNTO 3 (B): Evitar carga infinita si hay error de red
+                    page.controls.remove(anillo_carga) # Quitamos el círculo de carga
+                    e.control.disabled = False         # Volvemos a habilitar el botón
+                    e.control.content = ft.Text("Reintentar Guardar")
+                    
+                    page.add(
+                        ft.Text(
+                            "❌ Error de red (Supabase inaccesible). Intenta nuevamente o cierra la app si el problema persiste.",
+                            color=ft.Colors.RED_700,
+                            weight="bold",
+                            text_align=ft.TextAlign.CENTER
+                        )
+                    )
+                    page.update()
 
             boton_enviar_clima = ft.ElevatedButton(
                 content=ft.Text("Finalizar y Guardar"),
