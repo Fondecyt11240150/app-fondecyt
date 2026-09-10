@@ -2,6 +2,7 @@ import flet as ft
 import uuid
 import json
 import os
+import threading
 from supabase import create_client, Client
 
 SUPABASE_URL = "https://ysordxpmgdxzfwijduyj.supabase.co"
@@ -345,7 +346,8 @@ def main(page: ft.Page):
                     json.dump(restantes, archivo)
 
 
-        sincronizar_datos_locales()
+        trabajador_invisible = threading.Thread(target=sincronizar_datos_locales)
+        trabajador_invisible.start()
 
         page.add(componente_npc("¡Genial! Por Favor, registra tu nombre y selecciona el simulador al que deseas ingresar.", "idea.png"))
 
