@@ -728,6 +728,7 @@ def main(page: ft.Page):
             # Si pasamos la validación, limpiamos cualquier error previo
             campo_reflexion.hint_text = None
             campo_reflexion.border_color = COLOR_CELESTE_UCM
+            
             # 2. Desactivamos el botón y mostramos carga
             e.control.disabled = True
             e.control.content = ft.Text("Guardando...")
@@ -753,7 +754,59 @@ def main(page: ft.Page):
                 "reflexion_final": reflexion_estudiante
             }
 
+            # ====================================================================
+            # 3. CREAMOS LOS BOTONES Y FUNCIONES ANTES DE CONECTAR A INTERNET
+            # ====================================================================
+            boton_reiniciar = ft.ElevatedButton(
+                content=ft.Text("🔄 Realizar otra simulación"),
+                style=ft.ButtonStyle(bgcolor=COLOR_AZUL_UCM, color=ft.Colors.WHITE),
+                on_click=lambda _: pantalla_seleccion_simulador(),
+                width=400
+            )
+
+            def cerrar_ventana(e):
+                page.controls.clear()
+
+                page.vertical_alignment = ft.MainAxisAlignment.CENTER
+                page.horizontal_alignment = ft.CrossAxisAlignment.CENTER
+                
+                pantalla_despedida = ft.Column(
+                    controls=[
+                        ft.Container(
+                            content=ft.Text(
+                                "¡Simulación finalizada! Ya puedes devolver o bloquear este dispositivo.", 
+                                color=ft.Colors.BLACK_87, 
+                                size=16, 
+                                text_align=ft.TextAlign.CENTER
+                            ),
+                            bgcolor=ft.Colors.WHITE,
+                            padding=20,
+                            border_radius=20, 
+                            border=ft.Border.all(2, COLOR_CELESTE_UCM),
+                            width=350,
+                            margin=ft.Margin.only(bottom=20) 
+                        ),
+                        
+                        ft.Image(src="adios.png", width=300, height=300, fit="contain")
+                    ],
+                    horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+                    alignment=ft.MainAxisAlignment.CENTER,
+                    spacing=0
+                )
+                
+                page.add(pantalla_despedida)
+                page.update()
+
+            boton_cerrar = ft.ElevatedButton(
+                content= ft.Text("❌ Salir del Simulador"),
+                style=ft.ButtonStyle(bgcolor=ft.Colors.RED_700, color=ft.Colors.WHITE),
+                on_click=cerrar_ventana,
+                width=400
+            )
+            # ====================================================================
+
             try:
+                # Intentamos guardar en la base de datos
                 respuesta = supabase.table("respuestas_simulador").insert(paquete_datos).execute()
                 print("✅ Éxito al guardar:", respuesta.data)
 
@@ -770,58 +823,17 @@ def main(page: ft.Page):
                 page.add(ft.Text(f'¡Muchas gracias por participar, {page.session.store.get("nombre_usuario")}!', size=20, color=ft.Colors.GREEN_700))
                 page.add(ft.Text("Tus respuestas han sido guardadas con éxito.", size=16))
 
-                boton_reiniciar = ft.ElevatedButton(
-                    content=ft.Text("🔄 Realizar otra simulación"),
-                    style=ft.ButtonStyle(bgcolor=COLOR_AZUL_UCM, color=ft.Colors.WHITE),
-                    on_click=lambda _: pantalla_seleccion_simulador(),
-                    width=400
-                )
-
-                def cerrar_ventana(e):
-                    page.controls.clear()
-
-                    page.vertical_alignment = ft.MainAxisAlignment.CENTER
-                    page.horizontal_alignment = ft.CrossAxisAlignment.CENTER
-                    
-                    pantalla_despedida = ft.Column(
-                        controls=[
-                            ft.Container(
-                                content=ft.Text(
-                                    "¡Simulación finalizada! Ya puedes devolver o bloquear este dispositivo.", 
-                                    color=ft.Colors.BLACK_87, 
-                                    size=16, 
-                                    text_align=ft.TextAlign.CENTER
-                                ),
-                                bgcolor=ft.Colors.WHITE,
-                                padding=20,
-                                border_radius=20, 
-                                border=ft.Border.all(2, COLOR_CELESTE_UCM),
-                                width=350,
-                                margin=ft.Margin.only(bottom=20) 
-                            ),
-                            
-                            ft.Image(src="adios.png", width=300, height=300, fit="contain")
-                        ],
-                        horizontal_alignment=ft.CrossAxisAlignment.CENTER,
-                        alignment=ft.MainAxisAlignment.CENTER,
-                        spacing=0
-                    )
-                    
-                    page.add(pantalla_despedida)
-                    page.update()
-
-                boton_cerrar = ft.ElevatedButton(
-                    content= ft.Text("❌ Salir del Simulador"),
-                    style=ft.ButtonStyle(bgcolor=ft.Colors.RED_700, color=ft.Colors.WHITE),
-                    on_click=cerrar_ventana,
-                    width=400
-                )
-
+                # Agregamos los botones que creamos arriba
                 page.add(ft.Divider(height=20, color="transparent"))
                 page.add(boton_reiniciar)
                 page.add(ft.Divider(height=10, color="transparent"))
                 page.add(boton_cerrar)
                 page.update()
+
+            except Exception as error:
+                # Aquí va tu bloque de rescate JSON (el que guarda el archivo y muestra la notificación naranja)
+                # Al final de ese bloque, también usarás 'boton_reiniciar' y 'boton_cerrar' y ahora funcionarán sin problema.
+                print("❌ Error de red, pasando al rescate...")
 
             except Exception as error:
                 print("❌ Error de red, guardando en caché persistente:", error)
@@ -1200,6 +1212,56 @@ def main(page: ft.Page):
                     "reflexion_final": reflexion_estudiante_clima
                 }
 
+                # ====================================================================
+                # 3. CREAMOS LOS BOTONES Y FUNCIONES ANTES DE CONECTAR A INTERNET
+                # ====================================================================
+                boton_reiniciar_clima = ft.ElevatedButton(
+                    content=ft.Text("🔄 Realizar otra simulación"),
+                    style=ft.ButtonStyle(bgcolor=COLOR_AZUL_UCM, color=ft.Colors.WHITE),
+                    on_click=lambda _: pantalla_seleccion_simulador(),
+                    width=400
+                )
+
+                def cerrar_ventana_clima(e):
+                    page.controls.clear()
+
+                    page.vertical_alignment = ft.MainAxisAlignment.CENTER
+                    page.horizontal_alignment = ft.CrossAxisAlignment.CENTER
+                    
+                    pantalla_despedida_clima = ft.Column(
+                        controls=[
+                            ft.Container(
+                                content=ft.Text(
+                                    "¡Simulación finalizada! Ya puedes devolver o bloquear este dispositivo.", 
+                                    color=ft.Colors.BLACK_87,
+                                    size=16,
+                                    text_align=ft.TextAlign.CENTER
+                                ),
+                                bgcolor=ft.Colors.WHITE,
+                                padding=20,
+                                border_radius=20,
+                                border=ft.Border.all(2, COLOR_CELESTE_UCM),
+                                width=350,
+                                margin=ft.Margin.only(bottom=20)
+                            ),
+                            ft.Image(src="adios.png", width=300, height=300, fit="contain")
+                        ],
+                        horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+                        alignment=ft.MainAxisAlignment.CENTER,
+                        spacing=0
+                    )
+
+                    page.add(pantalla_despedida_clima)
+                    page.update()
+
+                boton_cerrar_clima = ft.ElevatedButton(
+                    content=ft.Text("❌ Salir del Simulador"),
+                    style=ft.ButtonStyle(bgcolor=ft.Colors.RED_700, color=ft.Colors.WHITE),
+                    on_click=cerrar_ventana_clima,
+                    width=400
+                )
+                # ====================================================================
+
                 try:
                     respuesta = supabase.table("registro_simulaciones").insert(paquete_datos_clima).execute()
                     print("✅ Éxito al guardar:", respuesta.data)
@@ -1217,57 +1279,16 @@ def main(page: ft.Page):
                     page.add(ft.Text(f'¡Muchas gracias por participar, {page.session.store.get("nombre_usuario")}!', size=20, color=ft.Colors.GREEN_700))
                     page.add(ft.Text("Tus respuestas han sido guardadas con éxito.", size=16))
 
-                    boton_reiniciar_clima = ft.ElevatedButton(
-                        content=ft.Text("🔄 Realizar otra simulación"),
-                        style=ft.ButtonStyle(bgcolor=COLOR_AZUL_UCM, color=ft.Colors.WHITE),
-                        on_click=lambda _: pantalla_seleccion_simulador(),
-                        width=400
-                    )
-
-                    def cerrar_ventana_clima(e):
-                        page.controls.clear()
-
-                        page.vertical_alignment = ft.MainAxisAlignment.CENTER
-                        page.horizontal_alignment = ft.CrossAxisAlignment.CENTER
-                        
-                        pantalla_despedida_clima = ft.Column(
-                            controls=[
-                                ft.Container(
-                                    content=ft.Text(
-                                        "¡Simulación finalizada! Ya puedes devolver o bloquear este dispositivo.", 
-                                        color=ft.Colors.BLACK_87,
-                                        size=16,
-                                        text_align=ft.TextAlign.CENTER
-                                    ),
-                                    bgcolor=ft.Colors.WHITE,
-                                    padding=20,
-                                    border_radius=20,
-                                    border=ft.Border.all(2, COLOR_CELESTE_UCM),
-                                    width=350,
-                                    margin=ft.Margin.only(bottom=20)
-                                ),
-                                ft.Image(src="adios.png", width=300, height=300, fit="contain")
-                            ],
-                            horizontal_alignment=ft.CrossAxisAlignment.CENTER,
-                            alignment=ft.MainAxisAlignment.CENTER,
-                            spacing=0
-                        )
-
-                        page.add(pantalla_despedida_clima)
-                        page.update()
-
-                    boton_cerrar_clima = ft.ElevatedButton(
-                        content=ft.Text("❌ Salir del Simulador"),
-                        style=ft.ButtonStyle(bgcolor=ft.Colors.RED_700, color=ft.Colors.WHITE),
-                        on_click=cerrar_ventana_clima,
-                        width=400
-                    )
-
+                    # Agregamos los botones que creamos arriba
                     page.add(ft.Divider(height=20, color="transparent"))
                     page.add(boton_reiniciar_clima)
                     page.add(ft.Divider(height=10, color="transparent"))
                     page.add(boton_cerrar_clima)
                     page.update()
+                    
+                except Exception as error:
+                    # Aquí va tu bloque de rescate JSON de clima
+                    print("❌ Error de red, pasando al rescate de clima...")
 
                 except Exception as error:
                     print("❌ Error de red, guardando en caché persistente:", error)
