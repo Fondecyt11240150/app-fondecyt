@@ -831,11 +831,6 @@ def main(page: ft.Page):
                 page.update()
 
             except Exception as error:
-                # Aquí va tu bloque de rescate JSON (el que guarda el archivo y muestra la notificación naranja)
-                # Al final de ese bloque, también usarás 'boton_reiniciar' y 'boton_cerrar' y ahora funcionarán sin problema.
-                print("❌ Error de red, pasando al rescate...")
-
-            except Exception as error:
                 print("❌ Error de red, guardando en caché persistente:", error)
                 
                 # 1. Leer la caché actual (si existe)
@@ -1285,10 +1280,6 @@ def main(page: ft.Page):
                     page.add(ft.Divider(height=10, color="transparent"))
                     page.add(boton_cerrar_clima)
                     page.update()
-                    
-                except Exception as error:
-                    # Aquí va tu bloque de rescate JSON de clima
-                    print("❌ Error de red, pasando al rescate de clima...")
 
                 except Exception as error:
                     print("❌ Error de red, guardando en caché persistente:", error)
