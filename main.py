@@ -1,5 +1,6 @@
 import flet as ft
 import uuid
+import json
 import os
 from supabase import create_client, Client
 
@@ -320,6 +321,32 @@ def main(page: ft.Page):
     def pantalla_seleccion_simulador(atras=None):
         page.controls.clear()
 
+        def sincronizar_datos_locales():
+            if not os.path.exists("cache_simulador.json"):
+                        return
+            
+            try:
+                with open("cache_simulador.json", "r", encoding="utf-8") as archivo:
+                            pendientes = json.load(archivo)
+            except:
+                pendientes = []
+            
+            if pendientes:
+                print(f"🔄 Intentando sincronizar {len(pendientes)} respuestas guardadas...")
+                restantes = []
+                for item in pendientes:
+                    try:
+                        supabase.table(item["tabla"]).insert(item["datos"]).execute()
+                        print(f"✅ Sincronización exitosa en {item['tabla']}")
+                    except:
+                        restantes.append(item)
+            
+                with open("cache_simulador.json", "w", encoding="utf-8") as archivo:
+                    json.dump(restantes, archivo)
+
+
+        sincronizar_datos_locales()
+
         page.add(componente_npc("¡Genial! Por Favor, registra tu nombre y selecciona el simulador al que deseas ingresar.", "idea.png"))
 
         campo_nombre = ft.TextField(
@@ -548,7 +575,7 @@ def main(page: ft.Page):
 
     def rama_ofrecen(atras=None):
         texto = [
-            "--- INFORMACIÓN DE COBERTURA ---",
+            "--- INFORMACIÓN DE COBERTURA ---\n\n"
             "La compañía ofrece dos tipos de seguros",
             "Seguro Full: Prima mensual de $90.000. Cubre pérdida total por daños en la infraestructura del local y, además, daños o pérdidas de las mercancías, por conceptos de robo o siniestros.",
             "• Seguro Parcial: Prima mensual de $40.000. Cubre pérdida por daños en la infraestructura o bien daños o pérdidas en las mercancías, por concepto de robos o siniestros, con un tope máximo de $2.000.000.",
@@ -565,7 +592,7 @@ def main(page: ft.Page):
     
     def rama_riesgos(atras=None):
         texto = [
-            "--- INFORMACIÓN DE RIESGOS ---",
+            "--- INFORMACIÓN DE RIESGOS ---\n\n"
             "En el sector donde estará el local comercial de tu futuro negocio, se sabe que:",
             "• Se reporta una tasa promedio mensual de 20% de robos menores.",
             "• Se reporta una tasa promedio mensual de 10% de robos mayores.",
@@ -583,7 +610,7 @@ def main(page: ft.Page):
 
     def rama_costos(atras=None):
         texto = [
-            "--- INFORMACIÓN DE COSTOS POR ROBO O SINIESTRO ---",
+            "--- INFORMACIÓN DE COSTOS POR ROBO O SINIESTRO ---\n\n"
             "Según registros de las autoridades locales, se sabe que:",
             "• Se reporta un costo promedio de $600.000 por sufrir robos menores.",
             "• Se reporta un costo promedio de $3.000.000 por sufrir robos mayores.",
@@ -693,13 +720,14 @@ def main(page: ft.Page):
 
             # SOLUCIÓN PUNTO 3 (A): Validar que el campo no esté vacío
             if not reflexion_estudiante:
-                campo_reflexion.error_text = "⚠️ Este campo es obligatorio. Escribe tu reflexión."
+                campo_reflexion.hint_text = "⚠️ Este campo es obligatorio. Escribe tu reflexión."
+                campo_reflexion.border_color = ft.Colors.RED_700
                 page.update()
                 return # Detiene la función aquí mismo si está vacío
                 
             # Si pasamos la validación, limpiamos cualquier error previo
-            campo_reflexion.error_text = None
-
+            campo_reflexion.hint_text = None
+            campo_reflexion.border_color = COLOR_CELESTE_UCM
             # 2. Desactivamos el botón y mostramos carga
             e.control.disabled = True
             e.control.content = ft.Text("Guardando...")
@@ -796,21 +824,56 @@ def main(page: ft.Page):
                 page.update()
 
             except Exception as error:
-                print("❌ Error al guardar en Supabase:", error)
+                print("❌ Error de red, guardando en caché persistente:", error)
                 
-                # SOLUCIÓN PUNTO 3 (B): Evitar carga infinita si hay error de red
-                page.controls.remove(anillo_carga) # Quitamos el círculo de carga
-                e.control.disabled = False         # Volvemos a habilitar el botón
-                e.control.content = ft.Text("Reintentar Guardar")
+                # 1. Leer la caché actual (si existe)
+                pendientes_locales = []
+                if os.path.exists("cache_simulador.json"):
+                    try:
+                        with open("cache_simulador.json", "r", encoding="utf-8") as archivo:
+                            pendientes_locales = json.load(archivo)
+                    except:
+                        pass
+                
+                # 2. Agregar el nuevo dato
+                paquete_local = {
+                    "tabla": "respuestas_simulador", 
+                    "datos": paquete_datos 
+                }
+                pendientes_locales.append(paquete_local)
+
+                # 3. Guardar la caché actualizada
+                with open("cache_simulador.json", "w", encoding="utf-8") as archivo:
+                    json.dump(pendientes_locales, archivo)
+
+                page.controls.remove(anillo_carga)
+                page.controls.clear()
+                
+                notificacion_seguridad = ft.SnackBar(
+                    content=ft.Text(
+                        "Red inestable. Tus respuestas se han guardado de forma SEGURA en este dispositivo y se sincronizarán luego.", 
+                        color=ft.Colors.WHITE,
+                        weight="bold"
+                    ),
+                    bgcolor=ft.Colors.ORANGE_800,
+                    duration=7000
+                )
+                page.overlay.append(notificacion_seguridad)
+                notificacion_seguridad.open = True
                 
                 page.add(
-                    ft.Text(
-                        "❌ Error de red (Supabase inaccesible). Intenta nuevamente o cierra la app si el problema persiste.",
-                        color=ft.Colors.RED_700,
-                        weight="bold",
-                        text_align=ft.TextAlign.CENTER
+                    componente_npc(
+                        "¡Simulación completada! Tuvimos un salto en la red, pero todos tus datos están a salvo.", 
+                        "registro.png" 
                     )
                 )
+                page.add(ft.Divider(height=10, color="transparent"))
+                page.add(ft.Text(f'¡Muchas gracias por participar, {page.session.store.get("nombre_usuario")}!', size=20, color=ft.Colors.GREEN_700))
+                
+                page.add(ft.Divider(height=20, color="transparent"))
+                page.add(boton_reiniciar)
+                page.add(ft.Divider(height=10, color="transparent"))
+                page.add(boton_cerrar)
                 page.update()
         
         boton_enviar = ft.ElevatedButton(
@@ -994,7 +1057,7 @@ def main(page: ft.Page):
             "• Sin alerta: 520 familias afectadas y 180 viviendas con daño mayor.",
             "• Alerta Amarilla: 290 familias afectadas y 95 viviendas con daño mayor.",
             "• Alerta Roja: 75 familias afectadas y 28 viviendas con daño mayor.",
-            "¿Tomarías una decisión o solicitas más información?"
+            "¿Qué decisión tomarías?"
         ]
 
         opciones = [
@@ -1102,12 +1165,14 @@ def main(page: ft.Page):
 
                 # SOLUCIÓN PUNTO 3 (A): Validar que el campo no esté vacío
                 if not reflexion_estudiante_clima:
-                    campo_reflexion_clima.error_text = "⚠️ Este campo es obligatorio. Escribe tu reflexión."
+                    campo_reflexion_clima.hint_text = "⚠️ Este campo es obligatorio. Escribe tu reflexión."
+                    campo_reflexion_clima.border_color = ft.Colors.RED_700
                     page.update()
                     return # Detiene la función aquí mismo si está vacío
                     
                 # Si pasamos la validación, limpiamos cualquier error previo
-                campo_reflexion_clima.error_text = None
+                campo_reflexion_clima.hint_text = None
+                campo_reflexion_clima.border_color = COLOR_CELESTE_UCM
 
                 # 2. Desactivamos el botón y mostramos carga
                 e.control.disabled = True
@@ -1205,21 +1270,56 @@ def main(page: ft.Page):
                     page.update()
 
                 except Exception as error:
-                    print("❌ Error al guardar en Supabase", error)
+                    print("❌ Error de red, guardando en caché persistente:", error)
+                    
+                    # 1. Leer la caché actual
+                    pendientes_locales = []
+                    if os.path.exists("cache_simulador.json"):
+                        try:
+                            with open("cache_simulador.json", "r", encoding="utf-8") as archivo:
+                                pendientes_locales = json.load(archivo)
+                        except:
+                            pass
+                    
+                    # 2. Agregar el nuevo dato
+                    paquete_local = {
+                        "tabla": "registro_simulaciones", 
+                        "datos": paquete_datos_clima 
+                    }
+                    pendientes_locales.append(paquete_local)
 
-                    # SOLUCIÓN PUNTO 3 (B): Evitar carga infinita si hay error de red
-                    page.controls.remove(anillo_carga) # Quitamos el círculo de carga
-                    e.control.disabled = False         # Volvemos a habilitar el botón
-                    e.control.content = ft.Text("Reintentar Guardar")
+                    # 3. Guardar la caché actualizada
+                    with open("cache_simulador.json", "w", encoding="utf-8") as archivo:
+                        json.dump(pendientes_locales, archivo)
+
+                    page.controls.remove(anillo_carga)
+                    page.controls.clear()
+                    
+                    notificacion_seguridad = ft.SnackBar(
+                        content=ft.Text(
+                            "Red inestable. Tus respuestas se han guardado de forma SEGURA en este dispositivo y se sincronizarán luego.", 
+                            color=ft.Colors.WHITE,
+                            weight="bold"
+                        ),
+                        bgcolor=ft.Colors.ORANGE_800,
+                        duration=7000
+                    )
+                    page.overlay.append(notificacion_seguridad)
+                    notificacion_seguridad.open = True
                     
                     page.add(
-                        ft.Text(
-                            "❌ Error de red (Supabase inaccesible). Intenta nuevamente o cierra la app si el problema persiste.",
-                            color=ft.Colors.RED_700,
-                            weight="bold",
-                            text_align=ft.TextAlign.CENTER
+                        componente_npc(
+                            "¡Simulación completada! Tuvimos un salto en la red, pero todos tus datos están a salvo.", 
+                            "eco_lista.png"
                         )
                     )
+                    page.add(ft.Divider(height=10, color="transparent"))
+                    page.add(ft.Text(f'¡Muchas gracias por participar, {page.session.store.get("nombre_usuario")}!', size=20, color=ft.Colors.GREEN_700))
+                    
+                    page.add(ft.Divider(height=20, color="transparent"))
+                    page.add(boton_reiniciar_clima)
+                    page.add(ft.Divider(height=10, color="transparent"))
+                    page.add(boton_cerrar_clima)
                     page.update()
 
             boton_enviar_clima = ft.ElevatedButton(
